@@ -11,17 +11,27 @@ class Password(argparse.Action):
 
         setattr(namespace, self.dest, values)
 
+def checkChannels( clabel ):
+    "This function checks if the given channel label is valid and exists."
+    x = 0
+    mylist = session_client.channel.listAllChannels(session_key)
+    for m in mylist:
+        if m['label'] in clabel:
+            x = 1
+            print("OK, the channel is valid: %s" %(clabel))
+    if x == 0:
+        print("The given channel label is wrong or the channel doesn't exists. exit...")
+        exit()
+    return
 parser = argparse.ArgumentParser()
-#parser.add_argument("-v", "--verbosity", action="count", default=0)
 parser = argparse.ArgumentParser(prog='PROG', formatter_class=argparse.RawDescriptionHelpFormatter, description=textwrap.dedent('''\
-This scripts runs service pack migration for given base channel. 
+This scripts merges 'security advisory' errata and the respective packages from a given channel to an given target channel. 
 
 Sample command:
 
-              python patchsystems.py -s bjsuma.bo2go.home -u bjin -p suse1234 -g DEV-SLES12SP3 \n \
+    python mergepatches.py -s sumahost.sample.com -u sumauser -p password -sc "prod-sles12-sp4-updates-x86_64" -tc "target_channel_name" -fd "11 2 2019" -td "11 5 2019" \n \
 
-If -x is not specified the SP Migration is always a dryRun.
-Check Job status of the system if dryrun was successful before run the above command with -x specified. ''')) 
+''')) 
 parser.add_argument("-x", "--patch-it", action="store_true")
 parser.add_argument("-s", "--server", help="Enter your suse manager host address e.g. myserver.abd.domain",  default='localhost',  required=True)
 parser.add_argument("-u", "--username", help="Enter your suse manager loginid e.g. admin ", default='admin',  required=True)
@@ -45,14 +55,17 @@ today = datetime.today()
 dateTimeObj = datetime.now()
 date11 = datetime.strptime(args.from_date, "%d %m %Y")
 date21 = datetime.strptime(args.to_date, "%d %m %Y")
-#print('Current Timestamp : ', timestampStr)
  
 suma_end_date = xmlrpclib.DateTime(date21)
 suma_start_date = xmlrpclib.DateTime(date11)
 
+checkChannels(s_channel)
+checkChannels(t_channel)
+
 advisory = [ "Security Advisory"]
 advisorynames = []
 target_packagelist = []
+
 source_list = session_client.channel.software.listErrata(session_key, s_channel, suma_start_date,  suma_end_date)
 for s in source_list:
     if s['advisory_type'] in "Security Advisory":
@@ -62,9 +75,6 @@ for s in source_list:
             target_packagelist.append(p['id'])
 print(advisorynames)        
 
-#print(target_packagelist)
-#print(len(target_packagelist))
-#target_list = session_client.channel.software.mergeErrata(session_key, s_channel, t_channel,  advisorynames)
 session_client.channel.software.addPackages(session_key, t_channel, target_packagelist)
 target_package_list = session_client.errata.clone(session_key, t_channel, advisorynames)
 sleep(5)
@@ -73,8 +83,6 @@ print("there are %d: packages in the channel." % len(final_pkg_list))
 target_errata_list = session_client.channel.software.listErrata(session_key, t_channel, suma_start_date,  suma_end_date)
 for i in target_errata_list:
     if i['advisory_type'] in "Security Advisory":
-        print(i)
         a += 1
 print("/nThere are %s security patches in %s." %(a,  t_channel))
-
 session_client.auth.logout(session_key)
