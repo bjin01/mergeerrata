@@ -2,7 +2,7 @@
 import  argparse,  getpass,  textwrap
 import xmlrpclib
 from time import sleep
-from datetime import datetime,  timedelta
+from datetime import datetime
 
 class Password(argparse.Action):
     def __call__(self, parser, namespace, values, option_string):
@@ -16,11 +16,11 @@ def checkChannels( clabel ):
     x = 0
     mylist = session_client.channel.listAllChannels(session_key)
     for m in mylist:
-        if m['label'] in clabel:
+        if m['label'] == clabel:
             x = 1
             print("OK, the channel is valid: %s" %(clabel))
     if x == 0:
-        print("The given channel label is wrong or the channel doesn't exists. exit...")
+        print("The given channel label is wrong or the channel doesn't exists: %s" %(clabel))
         exit()
     return
 parser = argparse.ArgumentParser()
@@ -42,13 +42,13 @@ parser.add_argument("-fd", "--from_date", help="Enter a valid from_date. e.g. 13
 parser.add_argument("-td", "--to_date", help="Enter a valid to_date. e.g. 19. Sept, 2018 ",  required=True)
 args = parser.parse_args()
 
-print(args.from_date)
 a = 0
 MANAGER_URL = "http://"+ args.server+"/rpc/api"
 MANAGER_LOGIN = args.username
 MANAGER_PASSWORD = args.password
 s_channel = args.source_channel
 t_channel = args.target_channel
+
 session_client = xmlrpclib.Server(MANAGER_URL, verbose=0)
 session_key = session_client.auth.login(MANAGER_LOGIN, MANAGER_PASSWORD)
 today = datetime.today()
@@ -77,7 +77,7 @@ print(advisorynames)
 
 session_client.channel.software.addPackages(session_key, t_channel, target_packagelist)
 target_package_list = session_client.errata.clone(session_key, t_channel, advisorynames)
-sleep(5)
+sleep(5) # sometimes taskomatic takes a bit time to finish adding errata and packages to the channel. So we sleep here for 5 seconds
 final_pkg_list = session_client.channel.software.listAllPackages(session_key, t_channel)
 print("there are %d: packages in the channel." % len(final_pkg_list))
 target_errata_list = session_client.channel.software.listErrata(session_key, t_channel, suma_start_date,  suma_end_date)
